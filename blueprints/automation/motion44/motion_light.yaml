@@ -234,7 +234,7 @@ actions:
             data: >-
               {{
                 ({'brightness_pct': active_brightness | int} if use_brightness else {})
-                | combine({'kelvin': active_color_temp | int} if use_color_temp else {})
+                | combine({'color_temp_kelvin': active_color_temp | int} if use_color_temp else {})
               }}
 
       # -------- Keine Bewegung mehr: Licht aus --------
