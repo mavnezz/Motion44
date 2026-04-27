@@ -17,13 +17,13 @@ blueprint:
 
     lights:
       name: Lichter / Schalter
-      description: Welche Lichter oder Schalter sollen geschaltet werden.
+      description: Welche Lichter oder Schalter sollen geschaltet werden. Bitte einzelne Entitäten auswählen — keine Geräte/Bereiche.
       selector:
-        target:
-          entity:
-            domain:
-              - light
-              - switch
+        entity:
+          filter:
+            - domain: light
+            - domain: switch
+          multiple: true
 
     no_motion_wait:
       name: Aus-Verzögerung
@@ -229,7 +229,8 @@ actions:
             value_template: "{{ not use_illuminance or (states(illuminance_sensor) | float(9999)) < lux_threshold }}"
         sequence:
           - action: homeassistant.turn_on
-            target: !input lights
+            target:
+              entity_id: !input lights
             data: >-
               {{
                 ({'brightness_pct': active_brightness | int} if use_brightness else {})
@@ -244,4 +245,5 @@ actions:
             value_template: "{{ not use_bypass or bypass_helper in ['', none] or is_state(bypass_helper, 'off') }}"
         sequence:
           - action: homeassistant.turn_off
-            target: !input lights
+            target:
+              entity_id: !input lights
