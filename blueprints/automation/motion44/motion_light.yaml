@@ -1,0 +1,294 @@
+blueprint:
+  name: Motion44
+  description: >
+    Bewegungsmelder schaltet Licht an, nach Verzögerung wieder aus.
+    Zwei Profile (Abend/Nacht), Lux- und Sonnen-Check, Bypass via Buttons.
+  domain: automation
+  source_url: https://github.com/mavnezz/Motion44
+  input:
+    motion_sensors:
+      name: Bewegungsmelder
+      description: Ein oder mehrere binary_sensor Entitäten, die Bewegung melden.
+      selector:
+        entity:
+          filter:
+            domain: binary_sensor
+          multiple: true
+
+    lights:
+      name: Lichter / Schalter
+      description: Welche Lichter oder Schalter sollen geschaltet werden.
+      selector:
+        target:
+          entity:
+            domain:
+              - light
+              - switch
+
+    no_motion_wait:
+      name: Aus-Verzögerung
+      description: Wie lange nach letzter Bewegung warten, bis das Licht ausgeht.
+      default: 120
+      selector:
+        number:
+          min: 5
+          max: 1800
+          step: 5
+          unit_of_measurement: Sekunden
+          mode: slider
+
+    # ---------- Dunkel-Erkennung (Tor) ----------
+    use_sun:
+      name: Nur wenn Sonne unter Horizont
+      default: false
+      selector:
+        boolean:
+
+    use_illuminance:
+      name: Lux-Sensor verwenden?
+      default: false
+      selector:
+        boolean:
+
+    illuminance_sensor:
+      name: Lux-Sensor
+      description: Helligkeitssensor (sensor mit device_class "illuminance"). Nur relevant, wenn "Lux-Sensor verwenden" aktiv ist.
+      default: ""
+      selector:
+        entity:
+          filter:
+            domain: sensor
+            device_class: illuminance
+
+    lux_threshold:
+      name: Lux-Schwellwert
+      description: Licht schaltet nur, wenn der Lux-Wert UNTER diesem Wert liegt.
+      default: 50
+      selector:
+        number:
+          min: 0
+          max: 1000
+          step: 5
+          unit_of_measurement: lx
+          mode: slider
+
+    # ---------- Helligkeit / Farbe (Toggles) ----------
+    use_brightness:
+      name: Helligkeit setzen?
+      description: Wenn aktiviert, werden die Helligkeitswerte unten verwendet.
+      default: false
+      selector:
+        boolean:
+
+    use_color_temp:
+      name: Farbtemperatur setzen?
+      description: Wenn aktiviert, werden die Farbtemperatur-Werte unten verwendet (nur Lichter mit Tunable White).
+      default: false
+      selector:
+        boolean:
+
+    # ---------- Profil: Abend (Standard, wenn dunkel) ----------
+    brightness_pct_evening:
+      name: Helligkeit – Abend (%)
+      description: Helligkeit außerhalb des Nacht-Zeitfensters.
+      default: 100
+      selector:
+        number:
+          min: 1
+          max: 100
+          step: 1
+          unit_of_measurement: "%"
+          mode: slider
+
+    color_temp_kelvin_evening:
+      name: Farbtemperatur – Abend (K)
+      default: 3000
+      selector:
+        number:
+          min: 2000
+          max: 6500
+          step: 100
+          unit_of_measurement: K
+          mode: slider
+
+    # ---------- Profil: Nacht (innerhalb Zeitfenster) ----------
+    use_night_profile:
+      name: Nacht-Profil verwenden?
+      description: Innerhalb des Zeitfensters wird das Nacht-Profil verwendet (z.B. Toilettengang – dimmer, wärmer).
+      default: false
+      selector:
+        boolean:
+
+    night_window_start:
+      name: Nacht-Profil Start
+      default: "22:00:00"
+      selector:
+        time:
+
+    night_window_end:
+      name: Nacht-Profil Ende
+      default: "06:00:00"
+      selector:
+        time:
+
+    brightness_pct_night:
+      name: Helligkeit – Nacht (%)
+      default: 20
+      selector:
+        number:
+          min: 1
+          max: 100
+          step: 1
+          unit_of_measurement: "%"
+          mode: slider
+
+    color_temp_kelvin_night:
+      name: Farbtemperatur – Nacht (K)
+      default: 2200
+      selector:
+        number:
+          min: 2000
+          max: 6500
+          step: 100
+          unit_of_measurement: K
+          mode: slider
+
+    # ---------- Bypass ----------
+    use_bypass:
+      name: Bypass aktivieren?
+      description: >
+        Wenn aktiviert, kannst du die Automation per Button-Druck pausieren — z.B. mit zwei Tasten einer Hue Remote.
+        Solange Bypass aktiv ist, schaltet die Automation das Licht weder ein noch aus.
+        Du brauchst einen input_boolean Helper (Einstellungen → Helfer → Schalter), der den Bypass-Status speichert.
+      default: false
+      selector:
+        boolean:
+
+    bypass_helper:
+      name: Bypass Helper (input_boolean)
+      description: input_boolean, der den Bypass-Status speichert. Wird vom Blueprint selbst getoggelt.
+      default: ""
+      selector:
+        entity:
+          filter:
+            domain: input_boolean
+
+    bypass_on_button:
+      name: "Button: Bypass AKTIVIEREN"
+      description: binary_sensor des Buttons, der die Automation pausiert.
+      default: ""
+      selector:
+        entity:
+          filter:
+            domain: binary_sensor
+
+    bypass_off_button:
+      name: "Button: Bypass DEAKTIVIEREN"
+      description: binary_sensor des Buttons, der die Automation wieder freigibt.
+      default: ""
+      selector:
+        entity:
+          filter:
+            domain: binary_sensor
+
+mode: restart
+max_exceeded: silent
+
+variables:
+  use_brightness: !input use_brightness
+  use_color_temp: !input use_color_temp
+  brightness_pct_evening: !input brightness_pct_evening
+  color_temp_kelvin_evening: !input color_temp_kelvin_evening
+  use_night_profile: !input use_night_profile
+  night_window_start: !input night_window_start
+  night_window_end: !input night_window_end
+  brightness_pct_night: !input brightness_pct_night
+  color_temp_kelvin_night: !input color_temp_kelvin_night
+  use_sun: !input use_sun
+  use_illuminance: !input use_illuminance
+  illuminance_sensor: !input illuminance_sensor
+  lux_threshold: !input lux_threshold
+  use_bypass: !input use_bypass
+  bypass_helper: !input bypass_helper
+  in_night_window: >-
+    {%- set s = strptime(night_window_start | string, '%H:%M:%S').time() -%}
+    {%- set e = strptime(night_window_end | string, '%H:%M:%S').time() -%}
+    {%- set t = now().time() -%}
+    {{ (s <= e and s <= t < e) or (s > e and (t >= s or t < e)) }}
+  active_brightness: "{{ brightness_pct_night if (use_night_profile and in_night_window) else brightness_pct_evening }}"
+  active_color_temp: "{{ color_temp_kelvin_night if (use_night_profile and in_night_window) else color_temp_kelvin_evening }}"
+
+triggers:
+  - trigger: state
+    entity_id: !input motion_sensors
+    to: "on"
+    id: motion_on
+  - trigger: state
+    entity_id: !input motion_sensors
+    to: "off"
+    for:
+      seconds: !input no_motion_wait
+    id: motion_off
+  - trigger: state
+    entity_id: !input bypass_on_button
+    to: "on"
+    id: bypass_on
+  - trigger: state
+    entity_id: !input bypass_off_button
+    to: "on"
+    id: bypass_off
+
+conditions: []
+
+actions:
+  - choose:
+      # -------- Bypass aktivieren --------
+      - conditions:
+          - condition: trigger
+            id: bypass_on
+          - condition: template
+            value_template: "{{ use_bypass and bypass_helper not in ['', none] }}"
+        sequence:
+          - action: input_boolean.turn_on
+            target:
+              entity_id: !input bypass_helper
+
+      # -------- Bypass deaktivieren --------
+      - conditions:
+          - condition: trigger
+            id: bypass_off
+          - condition: template
+            value_template: "{{ use_bypass and bypass_helper not in ['', none] }}"
+        sequence:
+          - action: input_boolean.turn_off
+            target:
+              entity_id: !input bypass_helper
+
+      # -------- Bewegung erkannt: Licht an --------
+      - conditions:
+          - condition: trigger
+            id: motion_on
+          - condition: template
+            value_template: "{{ not use_bypass or bypass_helper in ['', none] or is_state(bypass_helper, 'off') }}"
+          - condition: template
+            value_template: "{{ not use_sun or is_state('sun.sun', 'below_horizon') }}"
+          - condition: template
+            value_template: "{{ not use_illuminance or (states(illuminance_sensor) | float(9999)) < lux_threshold }}"
+        sequence:
+          - action: homeassistant.turn_on
+            target: !input lights
+            data: >-
+              {{
+                ({'brightness_pct': active_brightness | int} if use_brightness else {})
+                | combine({'kelvin': active_color_temp | int} if use_color_temp else {})
+              }}
+
+      # -------- Keine Bewegung mehr: Licht aus --------
+      - conditions:
+          - condition: trigger
+            id: motion_off
+          - condition: template
+            value_template: "{{ not use_bypass or bypass_helper in ['', none] or is_state(bypass_helper, 'off') }}"
+        sequence:
+          - action: homeassistant.turn_off
+            target: !input lights

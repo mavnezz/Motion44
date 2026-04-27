@@ -1,0 +1,13 @@
+# Claude Code working directory
+.claude/
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
