@@ -2,7 +2,7 @@ blueprint:
   name: Motion44
   description: >
     Bewegungsmelder schaltet Licht an, nach Verzögerung wieder aus.
-    Zwei Profile (Abend/Nacht), Lux- und Sonnen-Check, Bypass via Buttons.
+    Zwei Profile (Abend/Nacht), Lux- und Sonnen-Check, optionaler Bypass via input_boolean Helper.
   domain: automation
   source_url: https://github.com/mavnezz/Motion44
   input:
