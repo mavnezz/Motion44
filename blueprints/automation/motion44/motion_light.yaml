@@ -228,7 +228,7 @@ actions:
           - condition: template
             value_template: "{{ not use_illuminance or (states(illuminance_sensor) | float(9999)) < lux_threshold }}"
         sequence:
-          - action: homeassistant.turn_on
+          - action: "{{ 'light.turn_on' if (use_brightness or use_color_temp) else 'homeassistant.turn_on' }}"
             target:
               entity_id: !input lights
             data: >-
