@@ -157,39 +157,22 @@ blueprint:
     use_bypass:
       name: Bypass aktivieren?
       description: >
-        Wenn aktiviert, kannst du die Automation per Button-Druck pausieren — z.B. mit zwei Tasten einer Hue Remote.
-        Solange Bypass aktiv ist, schaltet die Automation das Licht weder ein noch aus.
-        Du brauchst einen input_boolean Helper (Einstellungen → Helfer → Schalter), der den Bypass-Status speichert.
+        Wenn aktiviert, prüft die Automation den Status eines input_boolean Helpers.
+        Solange dieser Helper "on" ist, schaltet die Automation das Licht weder ein noch aus.
+        Den Helper schaltest du selbst — z.B. per Dashboard, Sprachbefehl, oder einer
+        separaten kleinen Automation, die auf deine Remote-Tasten reagiert.
       default: false
       selector:
         boolean:
 
     bypass_helper:
       name: Bypass Helper (input_boolean)
-      description: input_boolean, der den Bypass-Status speichert. Wird vom Blueprint selbst getoggelt.
+      description: input_boolean, dessen Status den Bypass kontrolliert. Nur relevant, wenn "Bypass aktivieren" aktiv ist.
       default: ""
       selector:
         entity:
           filter:
             domain: input_boolean
-
-    bypass_on_button:
-      name: "Button: Bypass AKTIVIEREN"
-      description: binary_sensor des Buttons, der die Automation pausiert.
-      default: ""
-      selector:
-        entity:
-          filter:
-            domain: binary_sensor
-
-    bypass_off_button:
-      name: "Button: Bypass DEAKTIVIEREN"
-      description: binary_sensor des Buttons, der die Automation wieder freigibt.
-      default: ""
-      selector:
-        entity:
-          filter:
-            domain: binary_sensor
 
 mode: restart
 max_exceeded: silent
@@ -229,41 +212,11 @@ triggers:
     for:
       seconds: !input no_motion_wait
     id: motion_off
-  - trigger: state
-    entity_id: !input bypass_on_button
-    to: "on"
-    id: bypass_on
-  - trigger: state
-    entity_id: !input bypass_off_button
-    to: "on"
-    id: bypass_off
 
 conditions: []
 
 actions:
   - choose:
-      # -------- Bypass aktivieren --------
-      - conditions:
-          - condition: trigger
-            id: bypass_on
-          - condition: template
-            value_template: "{{ use_bypass and bypass_helper not in ['', none] }}"
-        sequence:
-          - action: input_boolean.turn_on
-            data:
-              entity_id: "{{ bypass_helper }}"
-
-      # -------- Bypass deaktivieren --------
-      - conditions:
-          - condition: trigger
-            id: bypass_off
-          - condition: template
-            value_template: "{{ use_bypass and bypass_helper not in ['', none] }}"
-        sequence:
-          - action: input_boolean.turn_off
-            data:
-              entity_id: "{{ bypass_helper }}"
-
       # -------- Bewegung erkannt: Licht an --------
       - conditions:
           - condition: trigger

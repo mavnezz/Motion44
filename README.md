@@ -1,8 +1,8 @@
 # Motion44
 
 A slim Home Assistant **blueprint** for motion-triggered lighting, with separate
-evening and night profiles, lux/sun-based dark detection, and remote-button
-bypass support.
+evening and night profiles, lux/sun-based dark detection, and an optional
+bypass via an `input_boolean` helper.
 
 Built as a stripped-down alternative to the excellent but very large
 [Blackshome `sensor-light`](https://gist.github.com/Blackshome/6edfec0ff6a25c5da0d07b88dc908238)
@@ -20,9 +20,10 @@ YAML.
   - **Evening profile**: used outside the night window
   - **Night profile**: used inside the configured time window (e.g. for a
     dimmer, warmer toilet light at night)
-- **Bypass via two buttons** (e.g. Hue Remote / ZHA / Z2M)
-  - One button pauses the automation, another resumes it
-  - Bypass state is stored in an `input_boolean` helper
+- **Optional bypass** via an `input_boolean` helper
+  - While the helper is `on`, the automation neither turns lights on nor off
+  - Toggle the helper however you want — dashboard switch, voice, or a tiny
+    side-automation from your remote buttons
 
 ## Quick install
 
@@ -94,17 +95,20 @@ Used outside the night window (or always, if `use_night_profile` is off).
 
 ### Bypass
 
-Pause/resume the automation via two button presses. The bypass status is
-stored in an `input_boolean` helper which the blueprint toggles on its own.
+Pause/resume the automation by toggling an `input_boolean` helper. The
+blueprint only **reads** this helper — it does not toggle it itself. That
+keeps the blueprint simple and lets you wire the toggle however suits you.
 
 | Setting | Description |
 |---|---|
 | `use_bypass` | Master toggle for the bypass feature. |
-| `bypass_helper` | An `input_boolean` you create in HA to store the pause state. |
-| `bypass_on_button` | A `binary_sensor` (e.g. ZHA Hue Remote button) that activates bypass. |
-| `bypass_off_button` | A `binary_sensor` that deactivates bypass. |
+| `bypass_helper` | An `input_boolean` you create in HA. While `on`, motion is ignored. |
 
-While the helper is `on`, the automation will neither turn lights on nor off.
+Common ways to toggle the helper:
+
+- A switch on your dashboard
+- A voice command via Assist
+- A tiny separate automation: `binary_sensor` button press → `input_boolean.toggle`
 
 ## Example: hallway toilet
 
@@ -113,17 +117,14 @@ While the helper is `on`, the automation will neither turn lights on nor off.
 - **Dark detection**: `use_sun` on (don't fire during daytime)
 - **Evening profile**: 100% at 3000 K (normal walking-around light)
 - **Night profile**: on, window `22:00`–`06:00`, 20% at 2200 K (gentle toilet light)
-- **Bypass**: optional — wire two Hue Remote buttons to pause/resume during cleaning, parties, etc.
+- **Bypass**: optional — toggle a `Motion44 Hallway Bypass` helper from a Hue Remote during cleaning, parties, etc.
 
 ## Setup checklist for the bypass
 
 1. **Settings → Devices & services → Helpers → Create Helper → Toggle**, give it
    a unique name like `Motion44 Hallway Bypass`.
-2. In the blueprint instance, point `bypass_helper` to that helper.
-3. Pick the two `binary_sensor` entities that represent your remote buttons
-   (with ZHA, Hue Dimmer buttons appear as binary sensors).
-4. Press button A → automation pauses (light stays as-is). Press button B →
-   automation resumes.
+2. In the blueprint instance, enable `use_bypass` and point `bypass_helper` to that helper.
+3. Toggle the helper from wherever you like (dashboard switch, voice, side-automation).
 
 ## What is intentionally NOT included
 
@@ -146,8 +147,7 @@ issue.
 - Tested with Home Assistant **2024.6+** (uses the modern `triggers:` /
   `actions:` keys and `selector: time`)
 - Works with any motion `binary_sensor` (Zigbee, Z-Wave, ESPHome, etc.)
-- Bypass requires `binary_sensor` representations of remote buttons — most
-  common with **ZHA** and **Zigbee2MQTT**
+- Bypass requires only an `input_boolean` helper — toggle it however you want
 
 ## Credits
 
