@@ -250,8 +250,8 @@ actions:
             value_template: "{{ use_bypass and bypass_helper not in ['', none] }}"
         sequence:
           - action: input_boolean.turn_on
-            target:
-              entity_id: !input bypass_helper
+            data:
+              entity_id: "{{ bypass_helper }}"
 
       # -------- Bypass deaktivieren --------
       - conditions:
@@ -261,8 +261,8 @@ actions:
             value_template: "{{ use_bypass and bypass_helper not in ['', none] }}"
         sequence:
           - action: input_boolean.turn_off
-            target:
-              entity_id: !input bypass_helper
+            data:
+              entity_id: "{{ bypass_helper }}"
 
       # -------- Bewegung erkannt: Licht an --------
       - conditions:
