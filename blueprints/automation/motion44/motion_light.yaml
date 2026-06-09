@@ -314,4 +314,4 @@ actions:
         sequence:
           - action: input_boolean.toggle
             target:
-              entity_id: !input bypass_helper
+              entity_id: "{{ bypass_helper }}"
