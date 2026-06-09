@@ -259,6 +259,28 @@ blueprint:
           custom_value: true
           options: *remote_actions
 
+    light_off_action:
+      name: Tasten-Aktion – Licht AUS
+      description: >
+        Tastendruck, der die Lichter komplett ausschaltet. Unabhängig vom Bypass —
+        z.B. mit der Off-Taste lang gedrückt (off_long_release). "none" = nicht verwenden.
+      default: "off_long_release"
+      selector:
+        select:
+          custom_value: true
+          options: *remote_actions
+
+    max_brightness_action:
+      name: Tasten-Aktion – Volle Helligkeit (kaltweiß)
+      description: >
+        Tastendruck, der die Lichter auf 100% und kaltweiß (6500 K) setzt. Unabhängig vom
+        Bypass — z.B. mit der On-Taste lang gedrückt (on_long_release). "none" = nicht verwenden.
+      default: "on_long_release"
+      selector:
+        select:
+          custom_value: true
+          options: *remote_actions
+
 mode: restart
 max_exceeded: silent
 
@@ -283,6 +305,8 @@ variables:
   bypass_off_action: !input bypass_off_action
   evening_profile_action: !input evening_profile_action
   night_profile_action: !input night_profile_action
+  light_off_action: !input light_off_action
+  max_brightness_action: !input max_brightness_action
   in_night_window: >-
     {%- set s = strptime(night_window_start | string, '%H:%M:%S').time() -%}
     {%- set e = strptime(night_window_end | string, '%H:%M:%S').time() -%}
@@ -410,3 +434,34 @@ actions:
                 ({'brightness_pct': brightness_pct_night | int} if use_brightness else {})
                 | combine({'color_temp_kelvin': color_temp_kelvin_night | int} if use_color_temp else {})
               }}
+
+      # -------- Fernbedienung: Licht AUS --------
+      - conditions:
+          - condition: trigger
+            id: remote_event
+          - condition: template
+            value_template: >-
+              {{ use_remote_bypass
+                 and light_off_action not in ['', none, 'none']
+                 and trigger.event.data.command == light_off_action }}
+        sequence:
+          - action: homeassistant.turn_off
+            target:
+              entity_id: !input lights
+
+      # -------- Fernbedienung: Volle Helligkeit (kaltweiß) --------
+      - conditions:
+          - condition: trigger
+            id: remote_event
+          - condition: template
+            value_template: >-
+              {{ use_remote_bypass
+                 and max_brightness_action not in ['', none, 'none']
+                 and trigger.event.data.command == max_brightness_action }}
+        sequence:
+          - action: light.turn_on
+            target:
+              entity_id: !input lights
+            data:
+              brightness_pct: 100
+              color_temp_kelvin: 6500
