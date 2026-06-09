@@ -313,5 +313,5 @@ actions:
                  and trigger.event.data.command == bypass_action }}
         sequence:
           - action: input_boolean.toggle
-            target:
+            data:
               entity_id: "{{ bypass_helper }}"
