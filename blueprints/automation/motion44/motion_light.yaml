@@ -176,10 +176,12 @@ blueprint:
 
     # ---------- Fernbedienung (optional, ZHA) ----------
     use_remote_bypass:
-      name: Bypass per Fernbedienung umschalten?
+      name: Fernbedienung verwenden?
       description: >
-        Wenn aktiviert, toggelt ein Tastendruck auf der gewählten ZHA-Fernbedienung
-        den oben konfigurierten Bypass-Helper. Erfordert einen gesetzten Bypass-Helper.
+        Master-Schalter für alle Fernbedienungs-Funktionen unten (Bypass ein/aus,
+        Profil Abend/Nacht). Einzelne Funktionen deaktivierst du, indem du ihre
+        Tasten-Aktion auf "none" setzt. Bypass-Funktionen erfordern zusätzlich einen
+        gesetzten Bypass-Helper.
       default: false
       selector:
         boolean:
@@ -193,17 +195,18 @@ blueprint:
           filter:
             - integration: zha
 
-    bypass_action:
-      name: Tasten-Aktion für Bypass
+    bypass_on_action:
+      name: Tasten-Aktion – Bypass EIN
       description: >
-        Welche Tasten-Aktion der Fernbedienung den Bypass umschaltet. Bei einem Hue Dimmer
-        (RWL021/022) ist z.B. "on_long_release" = On-Taste lang gedrückt. Den exakten Wert
-        deiner Remote findest du via Entwicklerwerkzeuge → Events → "zha_event" abhören.
+        Welche Tasten-Aktion der Fernbedienung den Bypass EINschaltet. Bei einem Hue Dimmer
+        (RWL021/022) ist z.B. "on_long_release" = On-Taste lang gedrückt. "none" = nicht verwenden.
+        Den exakten Wert deiner Remote findest du via Entwicklerwerkzeuge → Events → "zha_event" abhören.
       default: "on_long_release"
       selector:
         select:
           custom_value: true
-          options:
+          options: &remote_actions
+            - "none"
             - "on_press"
             - "on_short_release"
             - "on_long_release"
@@ -220,6 +223,41 @@ blueprint:
             - "off_short_release"
             - "off_long_release"
             - "off_hold"
+
+    bypass_off_action:
+      name: Tasten-Aktion – Bypass AUS
+      description: >
+        Welche Tasten-Aktion der Fernbedienung den Bypass AUSschaltet. Bei einem Hue Dimmer
+        (RWL021/022) ist z.B. "off_long_release" = Off-Taste lang gedrückt. "none" = nicht verwenden.
+      default: "off_long_release"
+      selector:
+        select:
+          custom_value: true
+          options: *remote_actions
+
+    evening_profile_action:
+      name: Tasten-Aktion – Profil Abend anwenden
+      description: >
+        Tastendruck, der die Lichter manuell auf das ABEND-Profil setzt (Helligkeit/Farbtemperatur
+        Abend von oben). Unabhängig vom Bypass — praktisch z.B. mit der Heller-Taste (up).
+        "none" = nicht verwenden.
+      default: "up_short_release"
+      selector:
+        select:
+          custom_value: true
+          options: *remote_actions
+
+    night_profile_action:
+      name: Tasten-Aktion – Profil Nacht anwenden
+      description: >
+        Tastendruck, der die Lichter manuell auf das NACHT-Profil setzt (Helligkeit/Farbtemperatur
+        Nacht von oben). Unabhängig vom Bypass — praktisch z.B. mit der Dunkler-Taste (down).
+        "none" = nicht verwenden.
+      default: "down_short_release"
+      selector:
+        select:
+          custom_value: true
+          options: *remote_actions
 
 mode: restart
 max_exceeded: silent
@@ -241,7 +279,10 @@ variables:
   use_bypass: !input use_bypass
   bypass_helper: !input bypass_helper
   use_remote_bypass: !input use_remote_bypass
-  bypass_action: !input bypass_action
+  bypass_on_action: !input bypass_on_action
+  bypass_off_action: !input bypass_off_action
+  evening_profile_action: !input evening_profile_action
+  night_profile_action: !input night_profile_action
   in_night_window: >-
     {%- set s = strptime(night_window_start | string, '%H:%M:%S').time() -%}
     {%- set e = strptime(night_window_end | string, '%H:%M:%S').time() -%}
@@ -302,7 +343,7 @@ actions:
             target:
               entity_id: !input lights
 
-      # -------- Fernbedienung gedrückt: Bypass umschalten --------
+      # -------- Fernbedienung: Bypass EINschalten --------
       - conditions:
           - condition: trigger
             id: remote_event
@@ -310,8 +351,62 @@ actions:
             value_template: >-
               {{ use_remote_bypass
                  and bypass_helper not in ['', none]
-                 and trigger.event.data.command == bypass_action }}
+                 and bypass_on_action not in ['', none, 'none']
+                 and trigger.event.data.command == bypass_on_action }}
         sequence:
-          - action: input_boolean.toggle
+          - action: input_boolean.turn_on
             data:
               entity_id: "{{ bypass_helper }}"
+
+      # -------- Fernbedienung: Bypass AUSschalten --------
+      - conditions:
+          - condition: trigger
+            id: remote_event
+          - condition: template
+            value_template: >-
+              {{ use_remote_bypass
+                 and bypass_helper not in ['', none]
+                 and bypass_off_action not in ['', none, 'none']
+                 and trigger.event.data.command == bypass_off_action }}
+        sequence:
+          - action: input_boolean.turn_off
+            data:
+              entity_id: "{{ bypass_helper }}"
+
+      # -------- Fernbedienung: Profil Abend anwenden --------
+      - conditions:
+          - condition: trigger
+            id: remote_event
+          - condition: template
+            value_template: >-
+              {{ use_remote_bypass
+                 and evening_profile_action not in ['', none, 'none']
+                 and trigger.event.data.command == evening_profile_action }}
+        sequence:
+          - action: "{{ 'light.turn_on' if (use_brightness or use_color_temp) else 'homeassistant.turn_on' }}"
+            target:
+              entity_id: !input lights
+            data: >-
+              {{
+                ({'brightness_pct': brightness_pct_evening | int} if use_brightness else {})
+                | combine({'color_temp_kelvin': color_temp_kelvin_evening | int} if use_color_temp else {})
+              }}
+
+      # -------- Fernbedienung: Profil Nacht anwenden --------
+      - conditions:
+          - condition: trigger
+            id: remote_event
+          - condition: template
+            value_template: >-
+              {{ use_remote_bypass
+                 and night_profile_action not in ['', none, 'none']
+                 and trigger.event.data.command == night_profile_action }}
+        sequence:
+          - action: "{{ 'light.turn_on' if (use_brightness or use_color_temp) else 'homeassistant.turn_on' }}"
+            target:
+              entity_id: !input lights
+            data: >-
+              {{
+                ({'brightness_pct': brightness_pct_night | int} if use_brightness else {})
+                | combine({'color_temp_kelvin': color_temp_kelvin_night | int} if use_color_temp else {})
+              }}
